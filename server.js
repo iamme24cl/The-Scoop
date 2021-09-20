@@ -33,13 +33,14 @@ const routes = {
     'POST': createComment
   },
   '/comments/:id': {
-    'PUT': updateComment
+    'PUT': updateComment ,
+    'DELETE' : deleteComment
   },
   '/comments/:id/upvote': {
-
+    'PUT': upvoteComment
   },
   '/comments/:id/downvote': {
-
+    'PUT': downvoteComment
   }
 };
 
@@ -300,6 +301,88 @@ function updateComment(url, request) {
   }
   return response;
 }
+
+function deleteComment(url, request) {
+  const id = Number(url.split('/').filter(segment => segment)[1]);
+  const savedComment = database.comments[id];
+  const response = {};
+
+  if (savedComment) {
+    database.comments[id] = null;
+    const articleCommentIds = database.articles[savedComment.articleId].commentIds
+    articleCommentIds.splice(articleCommentIds.indexOf(id), 1);
+    const userCommentIds = database.users[savedComment.username].commentIds;
+    userCommentIds.splice(userCommentIds.indexOf(id), 1);
+    response.status = 204;
+  } else {
+    response.status = 404;
+  }
+
+  return response;
+}
+
+function upvoteComment(url, request) {
+  const id = Number(url.split('/').filter(segment => segment)[1]);
+  const username = request.body && request.body.username;
+  let savedComment = database.comments[id];
+  const response = {};
+
+  if (savedComment && database.users[username]) {
+    savedComment = upvote(savedComment, username);
+
+    response.body = {comment: savedComment};
+    response.status = 200;
+  } else {
+    response.status = 400;
+  }
+  return response;
+}
+
+function downvoteComment(url, request) {
+  const id = Number(url.split('/').filter(segment => segment)[1]);
+  const username = request.body && request.body.username;
+  let savedComment = database.comments[id];
+  const response = {};
+
+  if (savedComment && database.users[username]) {
+    savedComment = downvote(savedComment, username);
+
+    response.body = {comment: savedComment};
+    response.status = 200;
+  } else {
+    response.status = 400;
+  }
+  return response;
+}
+
+function upvote(item, username) {
+  if (item.downvotedBy.includes(username)) {
+    item.downvotedBy.splice(item.downvotedBy.indexOf(username), 1);
+  }
+  if (!item.upvotedBy.includes(username)) {
+    item.upvotedBy.push(username)
+  }
+  return item;
+}
+
+function downvote(item, username) {
+  if (item.upvotedBy.includes(username)) {
+    item.upvotedBy.splice(item.upvotedBy.indexOf(username), 1);
+  }
+  if (!item.downvotedBy.includes(username)) {
+    item.downvotedBy.push(username)
+  }
+  return item;
+}
+
+
+
+
+
+
+
+
+
 
 // Write all code above this line.
 
