@@ -1,8 +1,13 @@
+const Figg = require('figg');
+const dbYaml = new Figg({
+  name: 'database'
+})
+
 // database is let instead of const to allow us to modify it in test.js
 let database = {
   users: {},
   articles: {},
-  nextArticleId: 1, 
+  nextArticleId: 1,
   comments: {},
   nextCommentId: 1
 };
@@ -33,8 +38,8 @@ const routes = {
     'POST': createComment
   },
   '/comments/:id': {
-    'PUT': updateComment ,
-    'DELETE' : deleteComment
+    'PUT': updateComment,
+    'DELETE': deleteComment
   },
   '/comments/:id/upvote': {
     'PUT': upvoteComment
@@ -193,7 +198,7 @@ function deleteArticle(url, request) {
     userArticleIds.splice(userArticleIds.indexOf(id), 1);
     response.status = 204;
   } else {
-    response.status = 400;
+    response.status = 404;
   }
 
   return response;
@@ -235,32 +240,13 @@ function downvoteArticle(url, request) {
   return response;
 }
 
-function upvote(item, username) {
-  if (item.downvotedBy.includes(username)) {
-    item.downvotedBy.splice(item.downvotedBy.indexOf(username), 1);
-  }
-  if (!item.upvotedBy.includes(username)) {
-    item.upvotedBy.push(username);
-  }
-  return item;
-}
-
-function downvote(item, username) {
-  if (item.upvotedBy.includes(username)) {
-    item.upvotedBy.splice(item.upvotedBy.indexOf(username), 1);
-  }
-  if (!item.downvotedBy.includes(username)) {
-    item.downvotedBy.push(username);
-  }
-  return item;
-}
-
 function createComment(url, request) {
   const requestComment = request.body && request.body.comment;
   const response = {};
 
-  if (requestComment && requestComment.body && requestComment.articleId && 
-      database.articles[requestComment.articleId] && requestComment.username && database.users[requestComment.username]) {
+  if (requestComment && requestComment.body &&
+      requestComment.articleId && database.articles[requestComment.articleId] &&
+      requestComment.username && database.users[requestComment.username]) {
     const comment = {
       id: database.nextCommentId++,
       body: requestComment.body,
@@ -299,6 +285,7 @@ function updateComment(url, request) {
     response.body = {comment: savedComment};
     response.status = 200;
   }
+
   return response;
 }
 
@@ -309,7 +296,7 @@ function deleteComment(url, request) {
 
   if (savedComment) {
     database.comments[id] = null;
-    const articleCommentIds = database.articles[savedComment.articleId].commentIds
+    const articleCommentIds = database.articles[savedComment.articleId].commentIds;
     articleCommentIds.splice(articleCommentIds.indexOf(id), 1);
     const userCommentIds = database.users[savedComment.username].commentIds;
     userCommentIds.splice(userCommentIds.indexOf(id), 1);
@@ -335,6 +322,7 @@ function upvoteComment(url, request) {
   } else {
     response.status = 400;
   }
+
   return response;
 }
 
@@ -352,6 +340,7 @@ function downvoteComment(url, request) {
   } else {
     response.status = 400;
   }
+
   return response;
 }
 
@@ -360,7 +349,7 @@ function upvote(item, username) {
     item.downvotedBy.splice(item.downvotedBy.indexOf(username), 1);
   }
   if (!item.upvotedBy.includes(username)) {
-    item.upvotedBy.push(username)
+    item.upvotedBy.push(username);
   }
   return item;
 }
@@ -370,19 +359,18 @@ function downvote(item, username) {
     item.upvotedBy.splice(item.upvotedBy.indexOf(username), 1);
   }
   if (!item.downvotedBy.includes(username)) {
-    item.downvotedBy.push(username)
+    item.downvotedBy.push(username);
   }
   return item;
 }
 
+function loadDatabase() {
+  return dbYaml.load();
+}
 
-
-
-
-
-
-
-
+function saveDatabase() {
+  dbYaml.save();
+}
 
 // Write all code above this line.
 
@@ -432,6 +420,7 @@ const requestHandler = (request, response) => {
       body = JSON.parse(Buffer.concat(body).toString());
       const jsonRequest = {body: body};
       const methodResponse = routes[route][method].call(null, url, jsonRequest);
+      dbYaml.set(database);
       !isTestMode && (typeof saveDatabase === 'function') && saveDatabase();
 
       response.statusCode = methodResponse.status;
@@ -467,7 +456,7 @@ const server = http.createServer(requestHandler);
 
 server.listen(port, (err) => {
   if (err) {
-    return console.log('Server did not start succesfully: ', err);
+    return console.log('Server did not start successfully: ', err);
   }
 
   console.log(`Server is listening on ${port}`);
